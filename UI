@@ -1,0 +1,9 @@
+//@NotOnlyCurrentDoc
+//THIS FUNCTION IS TO MAKE A NEW MENU IN GOOGLE SHEETS
+function onOpen() {
+  var ui = SpreadsheetApp.getUi();
+  ui.createMenu("Run Automations")
+    .addItem("Get Data from Redash", "getdatafromredash")
+    //.addItem("Add Priorities", 'update_formnulas')
+    .addToUi();
+}
