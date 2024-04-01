@@ -1,0 +1,327 @@
+//@NotOnlyCurrentDoc
+function getapidata(response, sheetName) {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = getSheetByName(spreadsheet, sheetName);
+  var values = Utilities.parseCsv(response.getContentText('UTF-8'));
+  sheet.clearContents();
+  sheet.getRange(1, 1, values.length, values[0].length).setValues(values);
+}
+
+function getParams() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = getSheetByName(spreadsheet, PARAMS);
+  return buildObjectArray(sheet.getRange(1,1,sheet.getLastRow(),sheet.getLastColumn()).getValues());
+}
+
+function getParamValue(paramName) {
+  var value = '';
+  for (param of getParams()) {
+    if (param.NAME == paramName) {
+      value = param.VALUE;
+      break;
+    }
+  }
+  return value;
+}
+
+function getSettings() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = getSheetByName(spreadsheet, SETTINGS);
+  return buildObjectArray(sheet.getRange(1,1,sheet.getLastRow(),sheet.getLastColumn()).getValues());
+}
+
+function getSettingValue(paramName) {
+  var value = '';
+  for (param of getSettings()) {
+    if (param.NAME == paramName) {
+      value = param.VALUE;
+      break;
+    }
+  }
+  return value;
+}
+
+// Function that reads the 'Queries tab', name is stored in the Queries constant.  It grabs the Query_ID, Params to pass to redash, 
+function getQueries() {
+  const spreadsheet = SpreadsheetApp.getActive();
+  const sheet = getSheetByName(spreadsheet, QUERIES);
+  return buildObjectArray(sheet.getRange(1,1,sheet.getLastRow(),sheet.getLastColumn()).getValues());
+}
+
+// Function that resturns a sheet/tab when passed the id
+function getSheetById(spreadsheet, gid){
+  return spreadsheet.getSheets().filter(
+    function(s) {return s.getSheetId() === gid;}
+  )[0];
+}
+
+// Function that resturns a sheet/tab when passed the tab name
+function getSheetByName(spreadsheet, sheetName){
+  return spreadsheet.getSheets().filter(
+    function(s) {return s.getSheetName() === sheetName;}
+  )[0];
+}
+
+function buildObjectArray(data) {
+  var obj = {};
+  var headers = data[0];
+  var cols = headers.length;
+  var result = [];
+  var row = [];
+
+  for (var i = 1, l = data.length; i < l; i++) {
+    row = data[i];
+    obj = {}
+    for (var col = 0; col < cols; col++) {
+        obj[headers[col]] = row[col];
+    }
+    result.push(obj);
+  }
+  return result;
+}
+
+function buildDataArray(outputPrelim, headers = null) {
+  const output = [];
+  headers = headers ?? getHeadersFromObjectArray(outputPrelim);
+  output.push(headers);
+  outputPrelim.forEach(function(member) {
+    output.push(headers.map(function(header) {
+      return member[header] || '';
+    }));
+  });
+  return output;
+}
+
+function buildDataArrayNoHeaders(outputPrelim, headers) {
+  const output = [];
+  // output.push(headers);
+  outputPrelim.forEach(function(member) {
+    output.push(headers.map(function(header) {
+      return member[header] || '';
+    }));
+  });
+  return output;
+}
+
+function test() {
+  Logger.log(getParamValue('project_id'));
+}
+
+function writeToEndOfSheet(sheet, data) {
+  Logger.log(data);
+  if (data.length > 0) {
+      sheet.getRange(sheet.getLastRow() + 1, 1, data.length, data[0].length).setValues(data);
+    }
+}
+
+function getAdjacentCell(cell, direction, increment = 1) {
+  var rowModifier;
+  var colModifier;
+  switch (direction) {
+    case 'above':
+      rowModifier = -1 * increment;
+      colModifier = 0;
+      break;
+    case 'below':
+      rowModifier = 1 * increment;
+      colModifier = 0;
+      break;
+    case 'left':
+      rowModifier = 0;
+      colModifier = -1 * increment;
+      break;
+    case 'right':
+      rowModifier = 0;
+      colModifier = 1 * increment;
+      break;
+    default:
+      rowModifier = 0;
+      colModifier = 0;
+      break;
+  }
+  return cell.getSheet().getRange(cell.getRow()+rowModifier,cell.getColumn()+colModifier,1,1);
+}
+
+function get_creds() {
+  PROJECT_NUM = 'ops-tools-375704';
+  SECRET = 'Redash'
+  VERSION = 'latest'
+  endpoint = `https://secretmanager.googleapis.com/v1/projects/${PROJECT_NUM}/secrets/${SECRET}/versions/${VERSION}:access`;
+  token = ScriptApp.getOAuthToken();
+  response = UrlFetchApp.fetch(endpoint, {
+    headers: {
+      Authorization: 'Bearer ' + token,
+      Accept: 'application/json',
+    }
+    });
+  var secret = JSON.parse(response.getContentText()).payload.data;
+  api_key = Utilities.base64Decode(secret);
+   result = Utilities.newBlob(api_key, 'text/plain').getDataAsString();
+  return result
+}
+
+function add_priorities() {
+  const DUMMY_VALUE = 1;
+  const ss = SpreadsheetApp.getActive();
+  const sheets = {
+  
+    HoldingRemo: {
+      headerRange: [1, 18, 1, 2],
+      headersValues : ["Capacity Request", "Team Name"],
+      formulaOneRange : [1,18, DUMMY_VALUE, 1],
+      formulaTwoRange : [1,19, DUMMY_VALUE, 1],
+      columnDomain : ['Q'],
+      columnRater : ['M'],
+      columnCR : ['R']
+
+    },
+    StagingOutlier: {
+      headerRange: [1, 12, 1, 2],
+      headersValues : ["Capacity Request", "Team Name"],
+      formulaOneRange : [1,12, DUMMY_VALUE, 1],
+      formulaTwoRange : [1,13, DUMMY_VALUE, 1],
+      columnDomain : ['K'],
+      columnRater : ['J'],
+      columnCR : ['L']
+
+    },
+    HoldingOutlier: {
+      headerRange: [1, 18, 1, 2],
+      headersValues : ["Capacity Request", "Team Name"],
+      formulaOneRange : [1,18, DUMMY_VALUE, 1],
+      formulaTwoRange : [1,19, DUMMY_VALUE, 1],
+      columnDomain : ['Q'],
+      columnRater : ['M'],
+      columnCR : ['R']
+    },
+  }
+
+  Object.keys(sheets).forEach(function(key) {
+    let sheet = ss.getSheetByName(key);
+    //let sheet = ss.getSheetByName('Staging');
+    const maxLastRow = sheet.getMaxRows();
+    // sheet.clear()
+    let headerrange = sheet.getRange(
+      sheets[key].headerRange[0],
+      sheets[key].headerRange[1],
+      sheets[key].headerRange[2],
+      sheets[key].headerRange[3]
+    );
+    // let headerrange = sheet.getRange(1,10,1,2);
+    let headersvalues = [(
+      sheets[key].headersValues[0],
+      sheets[key].headersValues[1]
+      )];
+    let data = [];
+    for (var i=0; i < maxLastRow; i++)
+    {
+    // creates an array with the formulas for the WT, that will be put on the sheet, the formula is: 
+    // =IF((VLOOKUP(I7,Priorities!A:D,4,0) = ""),
+    // QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col5"),
+    // IF('Random Numers (Do not touch)'!A7=1,QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col5"), QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col7")))
+
+    //=IF((VLOOKUP(I7,Priorities!A:D,4,0) = ""),
+    // QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col5"),
+    // IF('Random Numers (Do not touch)'!A7=1,QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col5"),
+    // QUERY(FILTER(Priorities!A:G,Priorities!A:A=I7,REGEXMATCH(Priorities!C:C,H7)),"select Col7")))
+
+      data[i] = ['IF((VLOOKUP(' + sheets[key].columnDomain[0] + (i+1).toString() + ',Priorities!A:D,4,0) = ""), QUERY(FILTER(Priorities!A:G,Priorities!A:A=' + sheets[key].columnDomain[0] + (i+1).toString() + ', REGEXMATCH(Priorities!C:C,' + sheets[key].columnRater[0] + (i+1).toString() + ')),"select Col5"),' 
+      + `IF('Random Numers (Do not touch)'!A` + (i+1).toString() + '=1, QUERY(FILTER(Priorities!A:G,Priorities!A:A=' + sheets[key].columnDomain[0] + (i+1).toString() + 
+      ',REGEXMATCH(Priorities!C:C,' + sheets[key].columnRater[0] + (i+1).toString() + ')),"select Col5"), QUERY(FILTER(Priorities!A:G,Priorities!A:A=' + sheets[key].columnDomain[0] + (i+1).toString() +
+      ',REGEXMATCH(Priorities!C:C,' + sheets[key].columnRater[0] + (i+1).toString() + ')),"select Col7")))'
+       ];   
+      }
+
+    // populate the array with the CR formulas.
+    // formulaRange = sheet.getRange(1,10,maxLastRow,1).setFormulas(data);
+    formulaRange = sheet.getRange(
+      sheets[key].formulaOneRange[0],
+      sheets[key].formulaOneRange[1],
+      maxLastRow,
+      sheets[key].formulaOneRange[3]
+    ).setFormulas(data);
+
+    var data2 = [];
+    for (var i=0; i < maxLastRow; i++)
+    // creates an array with the formulas for the WT, that will be put on the sheet, the formula is: 
+    //=IF((VLOOKUP(I2,Priorities!A:G,4,0) = ""), 
+    // IF(H2= "WRITER" ,VLOOKUP(J2,Priorities!E:F,2,0), SUBSTITUTE(VLOOKUP(J2,Priorities!E:F,2,0), "Writers", "Raters")), 
+    // IF('Random Numers (Do not touch)'!A71=1,IF(H2= "WRITER" ,VLOOKUP(J2,Priorities!E:F,2,0), SUBSTITUTE(VLOOKUP(J2,Priorities!E:F,2,0), "Writers", "Raters")), IF(H2= "WRITER" ,VLOOKUP(J2,Priorities!G:H,2,0), SUBSTITUTE(VLOOKUP(J2,Priorities!G:H,2,0), "Writers", "Raters"))))
+      {
+        data2[i] = ['IF((VLOOKUP(' + sheets[key].columnDomain[0] + (i+1).toString() + ',Priorities!A:G,4,0) = ""), IF(' + sheets[key].columnRater[0] + (i+1).toString() + `= "WRITER" ,VLOOKUP(` + sheets[key].columnCR[0] + (i+1).toString() + `,Priorities!E:F,2,0), SUBSTITUTE(VLOOKUP(` + sheets[key].columnCR[0] + (i+1).toString() + `,Priorities!E:F,2,0), "Writers", "Raters")), IF('Random Numers (Do not touch)'!A` + (i+1).toString() + '=1,IF(' + sheets[key].columnRater[0] + (i+1).toString() + '= "WRITER" ,VLOOKUP(' + sheets[key].columnCR[0] + (i+1).toString() + ',Priorities!E:F,2,0), SUBSTITUTE(VLOOKUP(' + sheets[key].columnCR[0] + (i+1).toString() + ',Priorities!E:F,2,0), "Writers", "Raters")), IF(' + sheets[key].columnRater[0] + (i+1).toString() + '= "WRITER" ,VLOOKUP(' + sheets[key].columnCR[0] + (i+1).toString() + ',Priorities!G:H,2,0), SUBSTITUTE(VLOOKUP(' + sheets[key].columnCR[0] + (i+1).toString() + ',Priorities!G:H,2,0), "Writers", "Raters"))))'];
+      }
+
+    // populate the array with the WT formulas.
+    sheet.getRange(
+      sheets[key].formulaTwoRange[0],
+      sheets[key].formulaTwoRange[1],
+      maxLastRow,
+      sheets[key].formulaTwoRange[3]
+    ).setFormulas(data2);
+    //headerrange.setValues(headersValues).setFontWeight("bold").setBackground('#c9daf8');
+    headerrange.setValues([["Capacity Request", "Team Name"]]
+  ).setFontWeight("bold").setBackground('#c9daf8');
+  })
+}
+
+function check_if_repeated () {
+  const DUMMY_VALUE = 1;
+  const ss = SpreadsheetApp.getActive();
+  const sheets = {
+    HoldingRemo: {
+      headerRange: [1, 20, 1, 1],
+      headersValues : ["Past WT Checker"],
+      formulaRange : [1,20, DUMMY_VALUE, 1],
+      columnPastWT : ['H'],
+      columnTargetWT : ['S'],
+    },
+    HoldingOutlier: {
+      headerRange: [1, 20, 1, 1],
+      headersValues : ["Past WT Checker"],
+      formulaRange : [1,20, DUMMY_VALUE, 1],
+      columnPastWT : ['H'],
+      columnTargetWT : ['S'],
+    },
+  }
+
+  Object.keys(sheets).forEach(function(key) {
+    let sheet = ss.getSheetByName(key);
+    //let sheet = ss.getSheetByName('Staging');
+    const maxLastRow = sheet.getMaxRows();
+    // sheet.clear()
+    let headerrange = sheet.getRange(
+      sheets[key].headerRange[0],
+      sheets[key].headerRange[1],
+      sheets[key].headerRange[2],
+      sheets[key].headerRange[3]
+    );
+    // let headerrange = sheet.getRange(1,10,1,2);
+    let headersvalues = [(
+      sheets[key].headersValues[0]
+    //  sheets[key].headersValues[1]
+      )];
+    let data = [];
+    for (var i=0; i < maxLastRow; i++)
+    {
+    // creates an array with the formulas for the WT, that will be put on the sheet, the formula is: 
+    // =IF((VLOOKUP(I2,Priorities!A:G,3,0) = ""), VLOOKUP(I2,Priorities!A:E,4,0), IF('Random Numers (Do not touch)'!A2=1,VLOOKUP(I2,Priorities!A:E,4,0), VLOOKUP(I2,Priorities!A:G,6,0)))
+      data[i] = ['IF(REGEXMATCH(' + sheets[key].columnPastWT[0] + (i+1).toString() + ',' + sheets[key].columnTargetWT[0] + (i+1).toString() + '), "Removed from target WT", "Never been on target WT")'];
+      }
+
+    // populate the array with the CR formulas.
+    // formulaRange = sheet.getRange(1,10,maxLastRow,1).setFormulas(data);
+    formulaRange = sheet.getRange(
+      sheets[key].formulaRange[0],
+      sheets[key].formulaRange[1],
+      maxLastRow,
+      sheets[key].formulaRange[3]
+    ).setFormulas(data);
+
+    headerrange.setValues([["Past WT Checker"]]).setFontWeight("bold").setBackground('#c9daf8');
+  })
+}
+
+function update_formnulas() {
+  add_priorities()
+  check_if_repeated()
+}
